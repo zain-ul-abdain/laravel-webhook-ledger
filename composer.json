@@ -1,0 +1,48 @@
+{
+    "name": "zain-ul-abdain/laravel-webhook-ledger",
+    "description": "Exactly-once webhook processing for Laravel. Signature verification, atomic deduplication, and a durable event log for Stripe, PayPal, and any provider you add.",
+    "keywords": ["laravel", "webhooks", "idempotency", "stripe", "paypal", "payments", "exactly-once"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Zain",
+            "email": "zain.aviaspares@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^11.0|^12.0|^13.0",
+        "illuminate/database": "^11.0|^12.0|^13.0",
+        "illuminate/support": "^11.0|^12.0|^13.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^3.0",
+        "laravel/pint": "^1.13"
+    },
+    "autoload": {
+        "psr-4": {
+            "Zain\\WebhookLedger\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Zain\\WebhookLedger\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Zain\\WebhookLedger\\WebhookLedgerServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

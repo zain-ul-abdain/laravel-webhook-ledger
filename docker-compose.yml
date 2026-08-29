@@ -1,0 +1,11 @@
+services:
+  test:
+    build: .
+    volumes:
+      - .:/app
+      - composer-cache:/tmp/composer
+    environment:
+      COMPOSER_CACHE_DIR: /tmp/composer
+
+volumes:
+  composer-cache:
