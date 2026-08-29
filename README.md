@@ -227,7 +227,9 @@ The suite covers concurrent redelivery, tampered and replayed signatures, secret
 
 ## Requirements
 
-PHP 8.2+ · Laravel 11, 12 or 13 · any database with unique constraint support
+PHP 8.2+ · Laravel 12 or 13 · any database with unique constraint support
+
+> Laravel 11 is not supported: every 11.x release currently carries open security advisories, so Composer refuses to install it under default policy.
 
 ## License
 

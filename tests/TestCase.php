@@ -3,6 +3,8 @@
 namespace Zain\WebhookLedger\Tests;
 
 use Orchestra\Testbench\TestCase as Orchestra;
+use Zain\WebhookLedger\Identifiers\GenericIdentifier;
+use Zain\WebhookLedger\Verifiers\SharedSecretVerifier;
 use Zain\WebhookLedger\WebhookLedgerServiceProvider;
 
 abstract class TestCase extends Orchestra
@@ -23,8 +25,8 @@ abstract class TestCase extends Orchestra
 
         $app['config']->set('webhook-ledger.stale_claim_after', 900);
         $app['config']->set('webhook-ledger.providers.test', [
-            'verifier' => \Zain\WebhookLedger\Verifiers\SharedSecretVerifier::class,
-            'identifier' => \Zain\WebhookLedger\Identifiers\GenericIdentifier::class,
+            'verifier' => SharedSecretVerifier::class,
+            'identifier' => GenericIdentifier::class,
             'secret' => 'test-secret',
             'header' => 'X-Webhook-Token',
             'paths' => ['id' => 'id', 'type' => 'type', 'external_id' => 'data.order_id'],

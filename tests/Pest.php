@@ -1,3 +1,5 @@
 <?php
 
-uses(Zain\WebhookLedger\Tests\TestCase::class)->in('Feature', 'Unit');
+use Zain\WebhookLedger\Tests\TestCase;
+
+uses(TestCase::class)->in('Feature', 'Unit');
