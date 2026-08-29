@@ -5,10 +5,17 @@
     "license": "MIT",
     "authors": [
         {
-            "name": "Zain",
-            "email": "zain.aviaspares@gmail.com"
+            "name": "Zain Ul Abdain",
+            "email": "zainburfat112@gmail.com",
+            "homepage": "https://github.com/zain-ul-abdain",
+            "role": "Developer"
         }
     ],
+    "homepage": "https://github.com/zain-ul-abdain/laravel-webhook-ledger",
+    "support": {
+        "issues": "https://github.com/zain-ul-abdain/laravel-webhook-ledger/issues",
+        "source": "https://github.com/zain-ul-abdain/laravel-webhook-ledger"
+    },
     "require": {
         "php": "^8.2",
         "illuminate/contracts": "^12.0|^13.0",
