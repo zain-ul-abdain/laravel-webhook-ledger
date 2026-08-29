@@ -7,6 +7,8 @@ on:
     branches: [main]
 
 jobs:
+  # Version coverage. SQLite keeps this matrix fast; the engine-specific
+  # behaviour is covered by the `databases` job below.
   test:
     runs-on: ubuntu-latest
 
@@ -55,6 +57,69 @@ jobs:
 
       - name: Run tests
         run: vendor/bin/pest
+        env:
+          DB_DRIVER: sqlite
+
+  # Engine coverage. The deduplication guarantee rests on constraint-violation
+  # behaviour, which differs by engine: PostgreSQL aborts the enclosing
+  # transaction where MySQL and SQLite do not. A suite that only runs on SQLite
+  # cannot establish that the duplicate path is correct.
+  databases:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        driver: [pgsql, mysql]
+
+    name: ${{ matrix.driver }}
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: testing
+          POSTGRES_USER: testing
+          POSTGRES_PASSWORD: testing
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U testing -d testing"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: testing
+          MYSQL_USER: testing
+          MYSQL_PASSWORD: testing
+          MYSQL_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ptesting"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, zip, pdo, pdo_pgsql, pdo_mysql
+          coverage: none
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run tests
+        run: vendor/bin/pest
+        env:
+          DB_DRIVER: ${{ matrix.driver }}
+          DB_HOST: 127.0.0.1
+          DB_PORT: ${{ matrix.driver == 'pgsql' && '5432' || '3306' }}
+          DB_DATABASE: testing
+          DB_USERNAME: testing
+          DB_PASSWORD: testing
 
   lint:
     runs-on: ubuntu-latest

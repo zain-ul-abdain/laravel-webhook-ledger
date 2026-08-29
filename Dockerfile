@@ -1,9 +1,10 @@
 # Test runner for the package. Not a production image — this exists so the suite
-# runs identically on any machine without a local PHP install.
+# runs identically on any machine without a local PHP install, against any of
+# the three supported database engines.
 FROM php:8.3-cli-alpine
 
-RUN apk add --no-cache git unzip libzip-dev sqlite sqlite-dev \
-    && docker-php-ext-install zip pdo pdo_sqlite
+RUN apk add --no-cache git unzip libzip-dev sqlite sqlite-dev postgresql-dev \
+    && docker-php-ext-install zip pdo pdo_sqlite pdo_pgsql pdo_mysql
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

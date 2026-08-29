@@ -221,7 +221,17 @@ composer install
 vendor/bin/pest
 ```
 
-The suite covers concurrent redelivery, tampered and replayed signatures, secret rotation, fingerprint fallback, stale-claim takeover, and failure recording.
+22 tests covering concurrent redelivery, tampered and replayed signatures, secret rotation, fingerprint fallback, stale-claim takeover, and failure recording.
+
+**The suite runs against SQLite, PostgreSQL and MySQL**, because the deduplication guarantee rests on constraint-violation behaviour and that differs by engine — PostgreSQL aborts the enclosing transaction where the others don't. A SQLite-only suite cannot establish that the duplicate path is correct.
+
+If you have Docker, all three run without a local PHP install:
+
+```bash
+docker compose run --rm test         # sqlite
+docker compose run --rm test-pgsql   # postgres
+docker compose run --rm test-mysql   # mysql
+```
 
 ---
 

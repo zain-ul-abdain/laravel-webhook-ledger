@@ -1,4 +1,5 @@
 services:
+  # Default: fast in-memory SQLite run.
   test:
     build: .
     volumes:
@@ -6,6 +7,61 @@ services:
       - composer-cache:/tmp/composer
     environment:
       COMPOSER_CACHE_DIR: /tmp/composer
+      DB_DRIVER: sqlite
+
+  # PostgreSQL aborts a transaction on constraint violation where SQLite and
+  # MySQL do not, so this run is the one that proves the duplicate path is safe
+  # for callers who wrap the handler in a transaction.
+  test-pgsql:
+    build: .
+    volumes:
+      - .:/app
+      - composer-cache:/tmp/composer
+    environment:
+      COMPOSER_CACHE_DIR: /tmp/composer
+      DB_DRIVER: pgsql
+      DB_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  test-mysql:
+    build: .
+    volumes:
+      - .:/app
+      - composer-cache:/tmp/composer
+    environment:
+      COMPOSER_CACHE_DIR: /tmp/composer
+      DB_DRIVER: mysql
+      DB_HOST: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: testing
+      POSTGRES_USER: testing
+      POSTGRES_PASSWORD: testing
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testing -d testing"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: testing
+      MYSQL_USER: testing
+      MYSQL_PASSWORD: testing
+      MYSQL_ROOT_PASSWORD: root
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-ptesting"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   composer-cache:

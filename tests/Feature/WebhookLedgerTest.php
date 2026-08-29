@@ -1,27 +1,8 @@
 <?php
 
-use Illuminate\Http\Request;
 use Zain\WebhookLedger\Exceptions\InvalidSignatureException;
 use Zain\WebhookLedger\Exceptions\UnknownProviderException;
 use Zain\WebhookLedger\Models\WebhookEvent;
-use Zain\WebhookLedger\WebhookLedger;
-
-function ledger(): WebhookLedger
-{
-    return app(WebhookLedger::class);
-}
-
-function testRequest(array $payload, string $token = 'test-secret'): Request
-{
-    $body = json_encode($payload);
-
-    $request = Request::create('/webhooks/test', 'POST', [], [], [], [
-        'CONTENT_TYPE' => 'application/json',
-        'HTTP_X_WEBHOOK_TOKEN' => $token,
-    ], $body);
-
-    return $request;
-}
 
 it('processes a valid event exactly once', function () {
     $runs = 0;
