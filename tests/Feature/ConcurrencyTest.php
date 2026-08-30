@@ -77,12 +77,18 @@ it('increments attempts exactly once when a takeover succeeds', function () {
 });
 
 it('does not mask the handler exception when recording the failure also fails', function () {
-    // Drop the table out from under the ledger after the row is claimed, so the
+    // Move the table out from under the ledger after the row is claimed, so the
     // markFailed() write cannot succeed. The caller must still receive the
     // handler's exception rather than a database error about the bookkeeping.
+    //
+    // A rename rather than a drop, so the schema can be put back — otherwise
+    // this test leaves the database in a state that breaks migration rollback
+    // at teardown for every test that follows.
     expect(fn () => ledger()->process('test', testRequest(['id' => 'evt_mask']), function () {
-        DB::statement('DROP TABLE webhook_events');
+        Schema::rename('webhook_events', 'webhook_events_hidden');
 
         throw new RuntimeException('the real problem');
     }))->toThrow(RuntimeException::class, 'the real problem');
+
+    Schema::rename('webhook_events_hidden', 'webhook_events');
 });

@@ -3,6 +3,7 @@
 namespace Zain\WebhookLedger\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 
 /**
@@ -25,6 +26,9 @@ class WebhookEvent extends Model
     public const STATUS_PROCESSED = 'processed';
 
     public const STATUS_FAILED = 'failed';
+
+    /** Valid, but nothing to apply it to yet. Retried on redelivery. */
+    public const STATUS_DEFERRED = 'deferred';
 
     protected $guarded = [];
 
@@ -55,6 +59,31 @@ class WebhookEvent extends Model
             'status' => self::STATUS_FAILED,
             'last_error' => mb_substr($e::class.': '.$e->getMessage(), 0, 2000),
         ])->save();
+    }
+
+    public function markDeferred(string $reason): void
+    {
+        $this->forceFill([
+            'status' => self::STATUS_DEFERRED,
+            'last_error' => mb_substr($reason, 0, 2000),
+        ])->save();
+    }
+
+    /**
+     * Link this event to whatever your handler resolved it to — the order,
+     * payment or subscription it concerns — so the history of a single object
+     * is an indexed lookup instead of a scan through stored payloads.
+     */
+    public function subject(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function attachTo(Model $subject): static
+    {
+        $this->subject()->associate($subject)->save();
+
+        return $this;
     }
 
     /**

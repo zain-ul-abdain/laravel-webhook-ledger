@@ -7,9 +7,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Zain\WebhookLedger\Contracts\EventIdentifier;
 use Zain\WebhookLedger\Contracts\SignatureVerifier;
+use Zain\WebhookLedger\Events\WebhookDeferred;
 use Zain\WebhookLedger\Events\WebhookDuplicateDetected;
 use Zain\WebhookLedger\Events\WebhookFailed;
 use Zain\WebhookLedger\Events\WebhookProcessed;
+use Zain\WebhookLedger\Exceptions\DeferWebhook;
 use Zain\WebhookLedger\Exceptions\InvalidSignatureException;
 use Zain\WebhookLedger\Exceptions\UnknownProviderException;
 use Zain\WebhookLedger\Identifiers\GenericIdentifier;
@@ -124,7 +126,16 @@ class WebhookLedger
             return WebhookResult::duplicate(null);
         }
 
-        if ($this->tryReclaim($event, (int) ($this->config['stale_claim_after'] ?? 900))) {
+        // A deferred event is explicitly waiting for a redelivery, so this is
+        // that redelivery. No staleness test — it was never in flight.
+        if ($event->status === WebhookEvent::STATUS_DEFERRED
+            && $this->claim($event, WebhookEvent::STATUS_DEFERRED)) {
+            return $this->run($event, $payload, $handler);
+        }
+
+        // A claim that expired means a worker died mid-handler; take it over.
+        if ($event->status === WebhookEvent::STATUS_PROCESSING
+            && $this->claim($event, WebhookEvent::STATUS_PROCESSING, (int) ($this->config['stale_claim_after'] ?? 900))) {
             return $this->run($event, $payload, $handler);
         }
 
@@ -134,35 +145,37 @@ class WebhookLedger
     }
 
     /**
-     * Attempt to take over a stale claim, atomically.
+     * Atomically take an existing row for another attempt.
      *
      * This must be a conditional UPDATE rather than a read-then-write. Two
-     * redeliveries arriving together will both read the same stale row, and if
-     * the takeover were "check the timestamp, then save" they would both pass
-     * the check and both run the handler - reintroducing the exact double
-     * processing the unique index exists to prevent, in the one code path
-     * specifically meant to recover from failure.
+     * redeliveries arriving together will both read the same row, and if the
+     * takeover were "check the status, then save" they would both pass the
+     * check and both run the handler - reintroducing the exact double
+     * processing the unique index exists to prevent, in the code paths
+     * specifically meant to recover.
      *
-     * Making the staleness predicate part of the UPDATE means the database
-     * decides: exactly one caller sees an affected-row count of 1.
+     * Putting the predicate in the UPDATE means the database decides: exactly
+     * one caller sees an affected-row count of 1.
+     *
+     * @param  int|null  $staleAfter  when set, only claim rows whose claim has expired
      */
-    protected function tryReclaim(WebhookEvent $event, int $staleAfter): bool
+    protected function claim(WebhookEvent $event, string $fromStatus, ?int $staleAfter = null): bool
     {
-        if ($event->status !== WebhookEvent::STATUS_PROCESSING) {
-            return false;
+        $query = WebhookEvent::query()
+            ->whereKey($event->getKey())
+            ->where('status', $fromStatus);
+
+        if ($staleAfter !== null) {
+            $query->whereNotNull('claimed_at')
+                ->where('claimed_at', '<=', now()->subSeconds($staleAfter));
         }
 
-        $affected = WebhookEvent::query()
-            ->whereKey($event->getKey())
-            ->where('status', WebhookEvent::STATUS_PROCESSING)
-            ->whereNotNull('claimed_at')
-            ->where('claimed_at', '<=', now()->subSeconds($staleAfter))
-            ->update([
-                'status' => WebhookEvent::STATUS_PROCESSING,
-                'attempts' => DB::raw('attempts + 1'),
-                'claimed_at' => now(),
-                'updated_at' => now(),
-            ]);
+        $affected = $query->update([
+            'status' => WebhookEvent::STATUS_PROCESSING,
+            'attempts' => DB::raw('attempts + 1'),
+            'claimed_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         if ($affected !== 1) {
             return false;
@@ -180,6 +193,15 @@ class WebhookLedger
     {
         try {
             $handler($payload, $event);
+        } catch (DeferWebhook $e) {
+            // Valid event, nothing to apply it to yet. Left retriable so the
+            // provider's next redelivery picks it up, rather than recorded as
+            // a failure that will resolve itself.
+            $event->markDeferred($e->getMessage());
+
+            WebhookDeferred::dispatch($event, $e->getMessage());
+
+            return WebhookResult::deferred($event);
         } catch (\Throwable $e) {
             // Recording the failure must never replace the failure. If the
             // handler died because the database went away, markFailed() will

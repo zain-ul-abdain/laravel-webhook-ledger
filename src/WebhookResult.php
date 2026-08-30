@@ -28,6 +28,11 @@ readonly class WebhookResult
         return new self('duplicate', $event);
     }
 
+    public static function deferred(WebhookEvent $event): self
+    {
+        return new self('deferred', $event);
+    }
+
     public function wasProcessed(): bool
     {
         return $this->outcome === 'processed';
@@ -36,5 +41,15 @@ readonly class WebhookResult
     public function wasDuplicate(): bool
     {
         return $this->outcome === 'duplicate';
+    }
+
+    /**
+     * Valid, but nothing to apply it to yet — the handler asked to wait for a
+     * redelivery. Still respond 200: the provider will try again, and an error
+     * response only adds a retry you did not ask for.
+     */
+    public function wasDeferred(): bool
+    {
+        return $this->outcome === 'deferred';
     }
 }
