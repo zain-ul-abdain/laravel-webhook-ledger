@@ -243,4 +243,6 @@ PHP 8.2+ · Laravel 12 or 13 · any database with unique constraint support
 
 ## License
 
-MIT. Built by [Zain](https://github.com/zain-ul-abdain) — backend engineer working on payments infrastructure.
+MIT. Built by **Zain Ul Abdain** — backend engineer working on payments infrastructure.
+
+[Portfolio](https://zain-ul-abdain.github.io) · [GitHub](https://github.com/zain-ul-abdain) · [LinkedIn](https://linkedin.com/in/zain-ul-abdain)
