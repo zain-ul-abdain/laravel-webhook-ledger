@@ -162,6 +162,50 @@ For events the provider never redelivers, a scheduled sweep converts stuck claim
 Schedule::command('webhook-ledger:sweep')->hourly();
 ```
 
+### Events that arrive before you're ready
+
+Providers can outrun your own writes. Stripe will happily deliver `checkout.session.completed` before your redirect handler has committed the local order row — so the handler has a perfectly valid event and nothing to apply it to.
+
+That is neither success nor failure. Recording it as success loses the event; recording it as failure fills your alerts with something that resolves itself. So say so:
+
+```php
+use Zain\WebhookLedger\Exceptions\DeferWebhook;
+
+WebhookLedger::process('stripe', $request, function (array $payload, $event) {
+    $order = Order::where('reference', $payload['data']['object']['id'])->first();
+
+    if (! $order) {
+        throw DeferWebhook::because('Order row not committed yet');
+    }
+
+    $order->markPaid();
+});
+```
+
+The event is stored with status `deferred` and left retriable — the provider's next redelivery runs the handler again, and providers retry for days. Respond `200` either way; `$result->wasDeferred()` tells you which happened.
+
+A deferred retry goes through the same atomic claim as a stale-claim takeover, so two simultaneous redeliveries can't both pick it up.
+
+### Linking an event to your own records
+
+```php
+WebhookLedger::process('stripe', $request, function (array $payload, $event) {
+    $order = Order::findByPaymentIntent($payload['data']['object']['payment_intent']);
+
+    $event->attachTo($order);
+    $order->markPaid();
+});
+```
+
+`subject_type` / `subject_id` are indexed, so "every event we ever received about this order" is a lookup rather than a scan through stored payloads — which is exactly the question you want answered when someone disputes what happened.
+
+```php
+$history = WebhookEvent::where('subject_type', Order::class)
+    ->where('subject_id', $order->id)
+    ->latest()
+    ->get();
+```
+
 ### Failures are explicit, not silent
 
 A handler that throws marks the event `failed` and rethrows. The exception is yours to log, alert on, and handle.
@@ -221,7 +265,7 @@ composer install
 vendor/bin/pest
 ```
 
-22 tests covering concurrent redelivery, tampered and replayed signatures, secret rotation, fingerprint fallback, stale-claim takeover, and failure recording.
+28 tests covering concurrent redelivery, tampered and replayed signatures, secret rotation, fingerprint fallback, stale-claim takeover, deferral and retry, subject linking, and failure recording.
 
 **The suite runs against SQLite, PostgreSQL and MySQL**, because the deduplication guarantee rests on constraint-violation behaviour and that differs by engine — PostgreSQL aborts the enclosing transaction where the others don't. A SQLite-only suite cannot establish that the duplicate path is correct.
 
