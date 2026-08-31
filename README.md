@@ -277,6 +277,8 @@ docker compose run --rm test-pgsql   # postgres
 docker compose run --rm test-mysql   # mysql
 ```
 
+Separately, an **11-test integration suite** runs against a real Laravel application with the package installed from Packagist — covering service-provider discovery, migrations landing in the host app, signature rejection, deduplication, deferral and subject linking. Testbench can't prove those; a real app can.
+
 ---
 
 ## Requirements
